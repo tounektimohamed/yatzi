@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "33860724078",
+    "project_id": "yatzi-3f690",
+    "storage_bucket": "yatzi-3f690.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:33860724078:android:0f17bd6bf658a034028d7f",
+        "android_client_info": {
+          "package_name": "com.yatzy.yatzy_multiplayer"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBcIsUfo3BoBejRPeOXVsJCXYgda1kelkM"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

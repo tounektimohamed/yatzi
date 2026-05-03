@@ -1,0 +1,116 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    function gameDoc(gameId) {
+      return get(/databases/$(database)/documents/games/$(gameId)).data;
+    }
+    
+    function isHost(gameId) {
+      return request.auth != null && request.auth.uid == gameDoc(gameId).hostId;
+    }
+    
+    function currentTurnPlayerId(gameId) {
+      return gameDoc(gameId).playerOrder[gameDoc(gameId).currentTurnIndex];
+    }
+    
+    function isBot(playerId) {
+      return playerId.matches('bot_.*');
+    }
+    
+    function currentTurnIsBot(gameId) {
+      return isBot(currentTurnPlayerId(gameId));
+    }
+    
+    // ── GAMES COLLECTION ──
+    match /games/{gameId} {
+      
+      allow read: if request.auth != null;
+      
+      allow create: if request.auth != null
+        && request.resource.data.status == 'waiting'
+        && request.resource.data.hostId == request.auth.uid
+        && request.resource.data.roomCode is string
+        && request.resource.data.roomCode.size() == 6
+        && request.resource.data.playerOrder is list
+        && request.resource.data.playerOrder[0] == request.auth.uid;
+      
+      allow update: if request.auth != null
+        && resource.data.hostId == request.auth.uid
+        && request.resource.data.hostId == resource.data.hostId
+        && request.resource.data.roomCode == resource.data.roomCode;
+      
+      allow delete: if request.auth != null
+        && resource.data.hostId == request.auth.uid
+        && resource.data.status == 'waiting';
+      
+      // ── PLAYERS SUBCOLLECTION ──
+      match /players/{playerId} {
+        
+        allow read: if request.auth != null;
+        
+        // Player creates themself, OR host creates bot players
+        allow create: if request.auth != null
+          && (request.auth.uid == playerId || (isHost(gameId) && isBot(playerId)))
+          && request.resource.data.name is string;
+        
+        // Player updates themself, OR host updates bot players
+        allow update: if request.auth != null
+          && (request.auth.uid == playerId || (isHost(gameId) && isBot(playerId)))
+          && request.resource.data.name == resource.data.name;
+        
+        allow delete: if request.auth != null
+          && (request.auth.uid == playerId || isHost(gameId));
+      }
+      
+      // ── DICE SUBCOLLECTION ──
+      match /dice/{diceId} {
+        
+        allow read: if request.auth != null;
+        allow create: if request.auth != null;
+        
+        // Current turn player updates dice, OR host updates for bot
+        allow update: if request.auth != null
+          && (request.auth.uid == currentTurnPlayerId(gameId)
+              || (isHost(gameId) && currentTurnIsBot(gameId)));
+      }
+      
+      // ── SCORES SUBCOLLECTION ──
+      match /scores/{playerId} {
+        
+        allow read: if request.auth != null;
+        
+        // Player creates own score, OR host creates for any player (at game start)
+        allow create: if request.auth != null
+          && (request.auth.uid == playerId || isHost(gameId));
+        
+        allow update: if request.auth != null
+          && (request.auth.uid == playerId
+              || (isHost(gameId) && isBot(playerId) && currentTurnPlayerId(gameId) == playerId))
+          && (
+            (request.resource.data.ones == resource.data.ones || resource.data.ones == null)
+            && (request.resource.data.twos == resource.data.twos || resource.data.twos == null)
+            && (request.resource.data.threes == resource.data.threes || resource.data.threes == null)
+            && (request.resource.data.fours == resource.data.fours || resource.data.fours == null)
+            && (request.resource.data.fives == resource.data.fives || resource.data.fives == null)
+            && (request.resource.data.sixes == resource.data.sixes || resource.data.sixes == null)
+            && (request.resource.data.pair == resource.data.pair || resource.data.pair == null)
+            && (request.resource.data.twoPairs == resource.data.twoPairs || resource.data.twoPairs == null)
+            && (request.resource.data.threeOfAKind == resource.data.threeOfAKind || resource.data.threeOfAKind == null)
+            && (request.resource.data.fourOfAKind == resource.data.fourOfAKind || resource.data.fourOfAKind == null)
+            && (request.resource.data.fullHouse == resource.data.fullHouse || resource.data.fullHouse == null)
+            && (request.resource.data.smallStraight == resource.data.smallStraight || resource.data.smallStraight == null)
+            && (request.resource.data.largeStraight == resource.data.largeStraight || resource.data.largeStraight == null)
+            && (request.resource.data.chance == resource.data.chance || resource.data.chance == null)
+            && (request.resource.data.yatzy == resource.data.yatzy || resource.data.yatzy == null)
+          );
+        
+        allow delete: if request.auth != null && isHost(gameId);
+      }
+    }
+    
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
